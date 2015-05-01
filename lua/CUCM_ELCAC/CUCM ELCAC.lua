@@ -68,31 +68,6 @@ local function dec2bin(dec,pad)
 
 end
 
--- Perform a binary compare between 2 IP's and a given length to determine if they are on the same network.
-local function compareIP(IP1,IP2,LEN)
-    local binIP1 = ""
-    for i in string.gfind(IP1, "(%w+)") do
-        binIP1 = binIP1 .. dec2bin(i,8)
-    end
-
-    local binIP2 = ""
-    for i in string.gfind(IP2, "(%w+)") do
-        binIP2 = binIP2 .. dec2bin(i,8)
-    end
-
-    trace.format("Dec IP1:  "..IP1..", Bin IP1:  "..binIP1.." Bin Compare: "..string.sub(binIP1, 0, LEN))
-    trace.format("Dec IP2:  "..IP2..", Bin IP2:  "..binIP2.." Bin Compare: "..string.sub(binIP2, 0, LEN))
-
-    -- See if the IP2 and IP2 are on the same network.
-    if string.sub(binIP1, 0, LEN) == string.sub(binIP2, 0, LEN) then
-        trace.format("Yes - "..IP1.." is on the same network as "..IP2.." which has a "..LEN.." bit length")
-        return true
-    else
-        trace.format("No - "..IP1.." is NOT on the same network as "..IP2.." which has a "..LEN.." bit length")
-        return false
-    end
-end
-
 local function getAddress(msg)
     -- Extract the IPv6 address from the SDP
     local sdp = msg:getSdp()
@@ -133,22 +108,6 @@ local function buildCallInfo(msg, LOCATION)
     return CINFO
 end
 
-local function dec2bin(dec)
-    local result = ""
-    local divres = dec / 2
-
-    local part
-    for i in string.gfind(divres, ".(5)") do
-        part = i
-    end
-
-    if part == nil then
-        trace.format("-- "..tostring(divres).." has no remainder")
-    else
-        trace.format("-- "..tostring(divres).." has remainder: " .. tostring(part))
-    end
-end
-
 -- From the supplied ADDRESS, return a Location Name and made up PKID.
 local function getLocation(ADDRESS)
     trace.format("-- Supplied Address: " .. ADDRESS .. " --")
@@ -159,29 +118,38 @@ local function getLocation(ADDRESS)
 
     -- Locations table, edit this as necessary to tell CUCM which networks belong to which location.
     -- PKID's generated from: http://www.guidgenerator.com
-    local LOC_COUNT = 3     -- Must match the amount of locations we have in our table.
+    local LOC_COUNT = 4     -- Must match the amount of locations we have in our table.
     local LOCATIONS = {
-        {["NAME"] = "LOC-TEST-1", ["PREFIX"]="192.168.174.8", ["LENGTH"]="30", ["PKID"]="62d8f58f-de7c-4cd0-afbf-2030ba52b743"},
-        {["NAME"] = "LOC-TEST-2", ["PREFIX"]="192.168.174.0", ["LENGTH"]="24", ["PKID"]="106ab138-5a44-4a50-b7c4-3f8befd8f38c"},
-        {["NAME"] = "LOC-TEST-3", ["PREFIX"]="192.168.0.0", ["LENGTH"]="16", ["PKID"]="3eed0571-38b7-4f09-9182-d1b8ad6b34cc"},
+        {["NAME"] = "LOC-TEST-1", ["PREFIX"]="192.168.100.8", ["LENGTH"]="30", ["PKID"]="62d8f58f-de7c-4cd0-afbf-2030ba52b743"},
+        {["NAME"] = "LOC-TEST-2", ["PREFIX"]="192.168.100.0", ["LENGTH"]="24", ["PKID"]="106ab138-5a44-4a50-b7c4-3f8befd8f38c"},
+        {["NAME"] = "LOC-TEST-3", ["PREFIX"]="192.169.0.0", ["LENGTH"]="16", ["PKID"]="3eed0571-38b7-4f09-9182-d1b8ad6b34cc"},
+        {["NAME"] = "LOC-TEST-2", ["PREFIX"]="192.170.0.0", ["LENGTH"]="16", ["PKID"]="3eed0571-38b7-4f09-9182-d1b8ad6b34cc"},
     }
+
+    -- Gets get the bin of our IP.
+    local BINSDP = ""
+    for i in string.gfind(ADDRESS, "(%w+)") do
+        BINSDP = BINSDP .. dec2bin(i,8)
+    end
 
     -- Loop over our table looking for our location
     for row=1,LOC_COUNT do
-        if (compareIP(ADDRESS,LOCATIONS[row]["PREFIX"],LOCATIONS[row]["LENGTH"]) == true) then
-            trace.format("-- Location found: "..LOCATIONS[row]["NAME"].." --")
-            RESPONSE = LOCATIONS[row]
-            found = true
-            break
+        local BINPFX = ""
+        for i in string.gfind(LOCATIONS[row]["PREFIX"], "(%w+)") do
+            BINPFX = BINPFX .. dec2bin(i,8)
+        end
+
+        -- See if the IP2 and IP2 are on the same network.
+        if string.sub(BINSDP, 0, LOCATIONS[row]["LENGTH"]) == string.sub(BINPFX, 0, LOCATIONS[row]["LENGTH"]) then
+            trace.format("Yes - "..ADDRESS.." is on the same network as "..LOCATIONS[row]["PREFIX"].." which has a "..LOCATIONS[row]["LENGTH"].." bit length")
+            return LOCATIONS[row]
+        else
+            trace.format("No - "..ADDRESS.." is NOT on the same network as "..LOCATIONS[row]["PREFIX"].." which has a "..LOCATIONS[row]["LENGTH"].." bit length")
         end
     end
 
-    if (found == false) then
-        trace.format("-- Address Unknown, unable to determine location --")
-        RESPONSE["NAME"] = false
-    end
-
-    return RESPONSE
+    trace.format("-- Address Unknown, unable to determine location --")
+    return false
 end
 
 local function process_inbound_SDP(msg)
@@ -194,7 +162,7 @@ local function process_inbound_SDP(msg)
     local LOCATION = getLocation(IPV4)
 
     -- 3. Build the new Call-Info Header with the new information, if we have valid data.
-    if LOCATION["NAME"] == false then
+    if LOCATION == false then
         trace.format("-- No Location found, proceeding without modification.")
     else
         local CallInfo = buildCallInfo(msg, LOCATION)
