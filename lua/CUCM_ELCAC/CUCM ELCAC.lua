@@ -21,41 +21,6 @@
 M = {}
 trace.enable()
 
--- From the supplied ADDRESS, return a Location Name and made up PKID.
-local function getLocation(ADDRESS)
-    trace.format("-- Supplied Address: " .. ADDRESS .. " --")
-    local found = false
-
-    -- Create an empty RESPONSE hash, this will be returned.
-    local RESPONSE = {}
-
-    -- Locations table, edit this as necessary to tell CUCM which networks belong to which location.
-    -- PKID's generated from: http://www.guidgenerator.com
-    local LOC_COUNT = 3     -- Must match the amount of locations we have in our table.
-    local LOCATIONS = {
-        {["NAME"] = "LOC-TEST-1", ["PREFIX"]="192.168.100.8", ["LENGTH"]="30", ["PKID"]="62d8f58f-de7c-4cd0-afbf-2030ba52b743"},
-        {["NAME"] = "LOC-TEST-2", ["PREFIX"]="192.168.100.0", ["LENGTH"]="24", ["PKID"]="106ab138-5a44-4a50-b7c4-3f8befd8f38c"},
-        {["NAME"] = "LOC-TEST-3", ["PREFIX"]="192.168.0.0", ["LENGTH"]="16", ["PKID"]="3eed0571-38b7-4f09-9182-d1b8ad6b34cc"},
-    }
-
-    -- Loop over our table looking for our location
-    for row=1,LOC_COUNT do
-        if (compareIP(ADDRESS,LOCATIONS[row]["PREFIX"],LOCATIONS[row]["LENGTH"]) == true) then
-            trace.format("-- Location found: "..LOCATIONS[row]["NAME"].." --")
-            RESPONSE = LOCATIONS[row]
-            found = true
-            break
-        end
-    end
-
-    if (found == false) then
-        trace.format("-- Address Unknown, unable to determine location --")
-        RESPONSE["NAME"] = false
-    end
-
-    return RESPONSE
-end
-
 -- This function turns a decimal number into a padded binary string
 -- Oh if only CUCM Lua would support the math library.
 local function dec2bin(dec,pad)
@@ -182,6 +147,41 @@ local function dec2bin(dec)
     else
         trace.format("-- "..tostring(divres).." has remainder: " .. tostring(part))
     end
+end
+
+-- From the supplied ADDRESS, return a Location Name and made up PKID.
+local function getLocation(ADDRESS)
+    trace.format("-- Supplied Address: " .. ADDRESS .. " --")
+    local found = false
+
+    -- Create an empty RESPONSE hash, this will be returned.
+    local RESPONSE = {}
+
+    -- Locations table, edit this as necessary to tell CUCM which networks belong to which location.
+    -- PKID's generated from: http://www.guidgenerator.com
+    local LOC_COUNT = 3     -- Must match the amount of locations we have in our table.
+    local LOCATIONS = {
+        {["NAME"] = "LOC-TEST-1", ["PREFIX"]="192.168.174.8", ["LENGTH"]="30", ["PKID"]="62d8f58f-de7c-4cd0-afbf-2030ba52b743"},
+        {["NAME"] = "LOC-TEST-2", ["PREFIX"]="192.168.174.0", ["LENGTH"]="24", ["PKID"]="106ab138-5a44-4a50-b7c4-3f8befd8f38c"},
+        {["NAME"] = "LOC-TEST-3", ["PREFIX"]="192.168.0.0", ["LENGTH"]="16", ["PKID"]="3eed0571-38b7-4f09-9182-d1b8ad6b34cc"},
+    }
+
+    -- Loop over our table looking for our location
+    for row=1,LOC_COUNT do
+        if (compareIP(ADDRESS,LOCATIONS[row]["PREFIX"],LOCATIONS[row]["LENGTH"]) == true) then
+            trace.format("-- Location found: "..LOCATIONS[row]["NAME"].." --")
+            RESPONSE = LOCATIONS[row]
+            found = true
+            break
+        end
+    end
+
+    if (found == false) then
+        trace.format("-- Address Unknown, unable to determine location --")
+        RESPONSE["NAME"] = false
+    end
+
+    return RESPONSE
 end
 
 local function process_inbound_SDP(msg)
