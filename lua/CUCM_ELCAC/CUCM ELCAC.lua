@@ -1,11 +1,11 @@
 --[[
     Description:
-    For SIP Trunks, CUCM CAC will deduct bandwidth from the location that is applied to the SIP trunk when a call is sent over that trunk.
-    If the other end of the SIP trunk directs the media to another location CUCM CAC is now possibly deducting the bandwidth from the wrong location.
-    Cisco has the ability to work around this with ELCAC. When the SIP trunk is configured in the shadow location, the trunk will accept the location name and bandwidth class in the call-info header of the SIP message:
-    Call-Info: <urn:x-cisco-remotecc:callinfo>;x-cisco-loc-id=<GUID>;x-cisco-loc-name=<LOCATION_NAME>;x-cisco;fateshare;id=<FATESHARE-ID>;x-cisco-video-traffic-class=desktop
+	CUCM CAC will deduct bandwidth from the location that is applied to the SIP trunk when a call is sent over that trunk.
+	If the other end of the SIP trunk directs the media to another location CUCM CAC is now possibly deducting the bandwidth from the wrong location.
+	Cisco has the ability to work around this with ELCAC. When the SIP trunk is configured in the shadow location, the trunk will accept the location name and bandwidth class in the call-info header of the SIP message:
+	Call-Info: <urn:x-cisco-remotecc:callinfo>;x-cisco-loc-id=<GUID>;x-cisco-loc-name=<LOCATION_NAME>;x-cisco;fateshare;id=<FATESHARE-ID>;x-cisco-video-traffic-class=desktop
 
-    But this relies on the remote endpoint adding this information into the SIP message, but what if the remote endpoint doesnt support this?
+	This relies on the remote endpoint adding this information into the SIP message, but what if the remote endpoint doesn't support this?
     Solution
         * Grab the Media Address from the SDP
         * Look this up in a table and finds the associated location NAME and GUID
@@ -13,60 +13,17 @@
         * Submit the modified SIP message to Call Manager
 
     Copyright (c) 2015 Aaron Daniels <aaron@daniels.id.au>
-    License: TBA
+    License: The MIT License (MIT)
 
+	**********************************************************************************************************************************
+	Please edit the LOC_COUNT variable and the LOCATIONS hash (begins at line 77) to your needs, remove any unnecessary hash entries.
+	**********************************************************************************************************************************
+	
     This script contains a fair bit of logging, please disable trace when not necessary.
 --]]
 
 M = {}
 trace.enable()
-
--- This function turns a decimal number into a padded binary string
--- Oh if only CUCM Lua would support the math library.
-local function dec2bin(dec,pad)
-    local result = ""
-    repeat
-        -- Half the decimal number
-        local divres = dec / 2
-
-        -- Find any remainder
-        local part
-        for i in string.gfind(divres, "(%..)") do
-            part = i
-        end
-
-        -- Determine if we have a 0 or 1, prepend it to the start of our running result
-        if part == nil then
-            -- if there is no remainder then we have a binary 0
-            result = "0" .. result
-            dec = divres
-            trace.format("-- Dec: "..tostring(dec)..", "..tostring(divres).." has no remainder")
-        else
-            -- if there is a remainder then we have a binary 1
-            result = "1" .. result
-            dec = divres - part
-            trace.format("-- Dec: "..tostring(dec)..", "..tostring(divres).." has remainder: " .. tostring(part))
-        end
-
-        -- repeat until we have turned all the decimal into binary.
-    until dec == 0
-
-    -- Pad the binary string to pad characters if it is less.
-    len = string.len(result)
-    if len < pad then
-        local pre = ""
-        for i=1,pad-len do
-            pre = pre .. "0"
-        end
-        trace.format("Result: "..len..", Pad: "..pad.." - Padding Required")
-        trace.format("Before Padding: "..result..", After: "..pre..result)
-        result = pre .. result
-    else
-        trace.format("Result: "..len..", Pad: "..pad.." - Padding NOT Required")
-    end
-    return result
-
-end
 
 local function getAddress(msg)
     -- Extract the IPv6 address from the SDP
@@ -320,7 +277,7 @@ local function process_inbound_SDP(msg)
     -- 1. Extract the IPv4 Address from the SDP
     local IPV4 = getAddress(msg)
 
-    -- 2. Retreive a location name for the IPv4 Address
+    -- 2. Retrieve a location name for the IPv4 Address
     local LOCATION = getLocation(IPV4)
 
     -- 3. Build the new Call-Info Header with the new information, if we have valid data.
